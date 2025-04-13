@@ -31,7 +31,6 @@ def login():
 
 @app.route('/logout')
 def logout():
-	# Clear all session data
 	session.clear()
 	return redirect('/')
 
@@ -50,20 +49,18 @@ def processlogin():
 		session['name'] = auth_result['name']
 		session['role'] = auth_result['role']
 		
-		# Reset failed login attempts counter
 		session['failed_attempts'] = 0
 		
-		# Check if there's a next parameter for redirect
 		next_url = request.args.get('next')
 		if next_url and next_url.startswith('/'):
 			return json.dumps({'success': 1, 'redirect': next_url})
 		return json.dumps({'success': 1, 'redirect': '/home'})
 	else:
-		# Increment failed login attempts counter
+
 		failed_attempts = session.get('failed_attempts', 0) + 1
 		session['failed_attempts'] = failed_attempts
 		
-		# Authentication failed
+
 		return json.dumps({
 			'success': 0, 
 			'message': auth_result['message'],
@@ -101,13 +98,10 @@ def handle_message(message):
     is_owner = session.get('role') == 'owner'
     role = "Owner" if is_owner else "Guest"
     
-    # Determine message class based on user role
     msg_class = 'owner-message' if is_owner else 'user-message'
     
-    # Format the message with the user's name and role
     formatted_msg = f"{user} ({role}): {message['msg']}"
     
-    # Emit the message to all connected clients
     emit('status', {'msg': formatted_msg, 'class': msg_class}, broadcast=True)
 
 #######################################################################################
@@ -140,24 +134,19 @@ def piano():
 
 @app.route('/processfeedback', methods=['POST'])
 def processfeedback():
-    # Access the form data
     feedback = request.form
     
-    # Extract the data
     name = feedback.get('name')
     email = feedback.get('email')
     comment = feedback.get('comment')
     
-    # Insert the feedback into the database
     columns = ['name', 'email', 'comment']
     parameters = [[name, email, comment]]
     db.insertRows(table='feedback', columns=columns, parameters=parameters)
     
-    # Retrieve all feedback from the database
     feedback_query = "SELECT * FROM feedback ORDER BY comment_id DESC"
     all_feedback = db.query(feedback_query)
     
-    # Render the feedback template with all feedback data
     return render_template('processfeedback.html', feedback_data=all_feedback)
 
 @app.route('/register')
@@ -172,7 +161,6 @@ def processregister():
     role = form_fields['role']
     name = form_fields['name']
     
-    # Create the user
     result = db.createUser(email=email, password=password, role=role, name=name)
     
     return json.dumps(result)
