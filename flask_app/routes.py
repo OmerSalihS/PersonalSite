@@ -9,7 +9,7 @@ import json
 import random
 import functools
 from . import socketio
-db = database()
+db = database(purge=True)
 
 #######################################################################################
 # AUTHENTICATION RELATED
@@ -121,7 +121,6 @@ def home():
 @app.route('/resume')
 def resume():
 	resume_data = db.getResumeData()
-	pprint(resume_data)
 	return render_template('resume.html', resume_data = resume_data)
 
 @app.route('/projects')

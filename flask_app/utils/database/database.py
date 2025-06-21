@@ -1,23 +1,44 @@
-import mysql.connector
+import os
 import glob
 import json
 import csv
-import os
 from io import StringIO
 import itertools
 import datetime
 import hashlib
 from cryptography.fernet import Fernet
 
+# Import database connectors based on environment
+if os.environ.get('DATABASE_URL'):
+    # Production (Render) - use PostgreSQL
+    import psycopg2
+    import psycopg2.extras
+    from urllib.parse import urlparse
+else:
+    # Development - use MySQL
+    import mysql.connector
+
 class database:
 
     def __init__(self, purge=False):
-        # Grab information from the configuration file
-        self.database = 'db'
-        self.host = '127.0.0.1'
-        self.user = 'master'
-        self.port = 3306
-        self.password = 'master'
+        # Check if we're on Render (has DATABASE_URL)
+        self.is_production = bool(os.environ.get('DATABASE_URL'))
+        
+        if self.is_production:
+            # Parse DATABASE_URL for PostgreSQL
+            url = urlparse(os.environ['DATABASE_URL'])
+            self.database = url.path[1:]  # Remove leading slash
+            self.host = url.hostname
+            self.user = url.username
+            self.port = url.port or 5432
+            self.password = url.password
+        else:
+            # Local MySQL settings
+            self.database = 'db'
+            self.host = '127.0.0.1'
+            self.user = 'master'
+            self.port = 3306
+            self.password = 'master'
         
         # Encryption settings
         self.encryption = {
@@ -34,33 +55,71 @@ class database:
         
         self.createTables(purge=purge, data_path='flask_app/database/')
 
-    def query(self, query="SELECT CURDATE()", parameters=None):
-        cnx = mysql.connector.connect(host=self.host,
-                                      user=self.user,
-                                      password=self.password,
-                                      port=self.port,
-                                      database=self.database,
-                                      charset='latin1'
-                                     )
-
-        if parameters is not None:
-            cur = cnx.cursor(dictionary=True)
-            cur.execute(query, parameters)
+    def query(self, query="SELECT CURRENT_DATE", parameters=None):
+        if self.is_production:
+            # PostgreSQL connection
+            cnx = psycopg2.connect(
+                host=self.host,
+                user=self.user,
+                password=self.password,
+                port=self.port,
+                database=self.database
+            )
+            
+            cur = cnx.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            
+            if parameters is not None:
+                cur.execute(query, parameters)
+            else:
+                cur.execute(query)
+            
+            # Fetch results
+            try:
+                row = cur.fetchall()
+                # Convert RealDictRow to regular dict
+                row = [dict(r) for r in row]
+            except:
+                row = []
+            
+            cnx.commit()
+            
+            if "INSERT" in query.upper() and "RETURNING" not in query.upper():
+                # For PostgreSQL, we need to modify INSERT queries to return the ID
+                if "INSERT INTO" in query.upper():
+                    # This is a bit hacky, but for compatibility
+                    pass
+            
+            cur.close()
+            cnx.close()
+            return row
         else:
-            cur = cnx.cursor(dictionary=True)
-            cur.execute(query)
+            # MySQL connection (original code)
+            cnx = mysql.connector.connect(host=self.host,
+                                          user=self.user,
+                                          password=self.password,
+                                          port=self.port,
+                                          database=self.database,
+                                          charset='latin1'
+                                         )
 
-        # Fetch one result
-        row = cur.fetchall()
-        cnx.commit()
+            if parameters is not None:
+                cur = cnx.cursor(dictionary=True)
+                cur.execute(query, parameters)
+            else:
+                cur = cnx.cursor(dictionary=True)
+                cur.execute(query)
 
-        if "INSERT" in query:
-            cur.execute("SELECT LAST_INSERT_ID()")
+            # Fetch one result
             row = cur.fetchall()
             cnx.commit()
-        cur.close()
-        cnx.close()
-        return row
+
+            if "INSERT" in query:
+                cur.execute("SELECT LAST_INSERT_ID()")
+                row = cur.fetchall()
+                cnx.commit()
+            cur.close()
+            cnx.close()
+            return row
 
     def about(self, nested=False):    
         query = """select concat(col.table_schema, '.', col.table_name) as 'table',
@@ -207,77 +266,43 @@ class database:
         """
         Returns a nested dictionary that represents the complete data
         """
-        # First, get all institutions
-        institutions_query = """
-            SELECT inst_id, type, name, department, address, city, state, zip
-            FROM institutions
-        """
-        institutions_data = self.query(institutions_query)
+        # Get all institutions
+        institutions_query = "SELECT * FROM institutions"
+        institutions = self.query(institutions_query)
         
         result = {}
         
-        for inst in institutions_data:
+        for inst in institutions:
             inst_id = inst['inst_id']
-            result[inst_id] = {
-                'type': inst['type'],
-                'name': inst['name'],
-                'department': inst['department'],
-                'address': inst['address'],
-                'city': inst['city'],
-                'state': inst['state'],
-                'zip': inst['zip'],
-                'positions': {}
-            }
+            result[inst_id] = inst
+            result[inst_id]['positions'] = {}
             
-            positions_query = f"""
-                SELECT position_id, title, responsibilities, start_date, end_date
-                FROM positions
-                WHERE inst_id = {inst_id}
-            """
-            positions_data = self.query(positions_query)
+            # Get positions for this institution
+            positions_query = "SELECT * FROM positions WHERE inst_id = %s"
+            positions = self.query(positions_query, (inst_id,))
             
-            for pos in positions_data:
-                position_id = pos['position_id']
-                result[inst_id]['positions'][position_id] = {
-                    'title': pos['title'],
-                    'responsibilities': pos['responsibilities'],
-                    'start_date': pos['start_date'],
-                    'end_date': pos['end_date'],
-                    'experiences': {}
-                }
+            for pos in positions:
+                pos_id = pos['position_id']
+                result[inst_id]['positions'][pos_id] = pos
+                result[inst_id]['positions'][pos_id]['experiences'] = {}
                 
-                experiences_query = f"""
-                    SELECT experience_id, name, description, hyperlink, start_date, end_date
-                    FROM experiences
-                    WHERE position_id = {position_id}
-                """
-                experiences_data = self.query(experiences_query)
+                # Get experiences for this position
+                experiences_query = "SELECT * FROM experiences WHERE position_id = %s"
+                experiences = self.query(experiences_query, (pos_id,))
                 
-                for exp in experiences_data:
-                    experience_id = exp['experience_id']
-                    result[inst_id]['positions'][position_id]['experiences'][experience_id] = {
-                        'name': exp['name'],
-                        'description': exp['description'],
-                        'hyperlink': exp['hyperlink'],
-                        'start_date': exp['start_date'],
-                        'end_date': exp['end_date'],
-                        'skills': {}
-                    }
+                for exp in experiences:
+                    exp_id = exp['experience_id']
+                    result[inst_id]['positions'][pos_id]['experiences'][exp_id] = exp
+                    result[inst_id]['positions'][pos_id]['experiences'][exp_id]['skills'] = {}
                     
-                    skills_query = f"""
-                        SELECT skill_id, name, skill_level
-                        FROM skills
-                        WHERE experience_id = {experience_id}
-                    """
-                    skills_data = self.query(skills_query)
+                    # Get skills for this experience
+                    skills_query = "SELECT * FROM skills WHERE experience_id = %s"
+                    skills = self.query(skills_query, (exp_id,))
                     
-                    for skill in skills_data:
+                    for skill in skills:
                         skill_id = skill['skill_id']
-                        result[inst_id]['positions'][position_id]['experiences'][experience_id]['skills'][skill_id] = {
-                            'name': skill['name'],
-                            'skill_level': skill['skill_level']
-                        }
-        
+                        result[inst_id]['positions'][pos_id]['experiences'][exp_id]['skills'][skill_id] = skill
+            
         return result
 
     def createUser(self, email='me@email.com', password='password', role='user', name='User'):

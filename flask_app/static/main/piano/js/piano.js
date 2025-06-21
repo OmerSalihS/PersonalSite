@@ -1,45 +1,106 @@
 document.addEventListener("DOMContentLoaded", () => {
     console.log("Piano script loaded!"); // Debugging Check
 
-    const sound = {
-        65: "http://carolinegabriel.com/demo/js-keyboard/sounds/040.wav",
-        87: "http://carolinegabriel.com/demo/js-keyboard/sounds/041.wav",
-        83: "http://carolinegabriel.com/demo/js-keyboard/sounds/042.wav",
-        69: "http://carolinegabriel.com/demo/js-keyboard/sounds/043.wav",
-        68: "http://carolinegabriel.com/demo/js-keyboard/sounds/044.wav",
-        70: "http://carolinegabriel.com/demo/js-keyboard/sounds/045.wav",
-        84: "http://carolinegabriel.com/demo/js-keyboard/sounds/046.wav",
-        71: "http://carolinegabriel.com/demo/js-keyboard/sounds/047.wav",
-        89: "http://carolinegabriel.com/demo/js-keyboard/sounds/048.wav",
-        72: "http://carolinegabriel.com/demo/js-keyboard/sounds/049.wav",
-        85: "http://carolinegabriel.com/demo/js-keyboard/sounds/050.wav",
-        74: "http://carolinegabriel.com/demo/js-keyboard/sounds/051.wav",
-        75: "http://carolinegabriel.com/demo/js-keyboard/sounds/052.wav",
-        79: "http://carolinegabriel.com/demo/js-keyboard/sounds/053.wav",
-        76: "http://carolinegabriel.com/demo/js-keyboard/sounds/054.wav",
-        80: "http://carolinegabriel.com/demo/js-keyboard/sounds/055.wav",
-        186: "http://carolinegabriel.com/demo/js-keyboard/sounds/056.wav"
+    // Create audio context for better sound generation
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // Piano key frequencies (in Hz)
+    const frequencies = {
+        65: 261.63,  // A -> C4
+        87: 277.18,  // W -> C#4
+        83: 293.66,  // S -> D4
+        69: 311.13,  // E -> D#4
+        68: 329.63,  // D -> E4
+        70: 349.23,  // F -> F4
+        84: 369.99,  // T -> F#4
+        71: 392.00,  // G -> G4
+        89: 415.30,  // Y -> G#4
+        72: 440.00,  // H -> A4
+        85: 466.16,  // U -> A#4
+        74: 493.88,  // J -> B4
+        75: 523.25,  // K -> C5
+        79: 554.37,  // O -> C#5
+        76: 587.33,  // L -> D5
+        80: 622.25,  // P -> D#5
+        186: 659.25  // ; -> E5
     };
+
+    // Function to play a tone
+    function playTone(frequency, duration = 0.5) {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+        oscillator.type = 'sine';
+        
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + duration);
+    }
 
     // Play sound when a key is pressed
     document.addEventListener("keydown", function(event) {
-        console.log(`Key pressed: ${event.keyCode}`); // Debugging
-        let key = document.querySelector(`.piano div[data-key="${event.keyCode}"]`);
+        // Prevent repeat events when key is held down
+        if (event.repeat) return;
         
-        if (key && sound[event.keyCode]) {
-            let audio = new Audio(sound[event.keyCode]);
-            audio.play();
+        console.log(`Key pressed: ${event.keyCode}`); // Debugging
+        let key = document.querySelector(`[data-key="${event.keyCode}"]`);
+        
+        if (key && frequencies[event.keyCode]) {
+            // Resume audio context if needed (browser security requirement)
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            
+            playTone(frequencies[event.keyCode]);
 
             // Apply visual effect
             key.classList.add("pressed");
-            setTimeout(() => key.classList.remove("pressed"), 200);
         }
     });
 
-    // Show letter on hover
+    // Remove visual effect when key is released
+    document.addEventListener("keyup", function(event) {
+        let key = document.querySelector(`[data-key="${event.keyCode}"]`);
+        if (key) {
+            key.classList.remove("pressed");
+        }
+    });
+
+    // Add click functionality for mouse interaction
     document.querySelectorAll(".piano div").forEach(key => {
-        key.addEventListener("mouseenter", () => key.querySelector("span").style.display = "block");
-        key.addEventListener("mouseleave", () => key.querySelector("span").style.display = "none");
+        const keyCode = parseInt(key.getAttribute('data-key'));
+        
+        key.addEventListener("click", () => {
+            if (frequencies[keyCode]) {
+                // Resume audio context if needed
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+                
+                playTone(frequencies[keyCode]);
+                
+                // Apply visual effect
+                key.classList.add("pressed");
+                setTimeout(() => key.classList.remove("pressed"), 200);
+            }
+        });
+
+        // Show letter on hover
+        key.addEventListener("mouseenter", () => {
+            const span = key.querySelector("span");
+            if (span) span.style.display = "block";
+        });
+        
+        key.addEventListener("mouseleave", () => {
+            const span = key.querySelector("span");
+            if (span) span.style.display = "none";
+        });
     });
 
     console.log("Key listeners added!"); // Debugging Check

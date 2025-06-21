@@ -1,17 +1,20 @@
 "skill_id","experience_id","name","skill_level"
-"1","1","C++","7"
-"2","1","Algorithms","8"
-"3","1","Financial Systems","6"
-"4","2","HTML","6"
-"5","2","CSS","6"
-"6","2","JavaScript","5"
-"7","2","React","4"
-"8","3","HTML","7"
-"9","3","CSS","7"
-"10","3","UI/UX Design","5"
-"11","4","Python","9"
-"12","4","Teaching","8"
-"13","5","Project Management","7"
-"14","5","Team Leadership","8"
-"15","6","Public Speaking","7"
-"16","6","Robotics","6"
+"1",NULL,"Swift",9
+"2",NULL,"Python",9
+"3",NULL,"Javascript",8
+"4",NULL,"SQL (Postgres)",8
+"5",NULL,"HTML/CSS",9
+"6",NULL,"C++",7
+"7",NULL,"SwiftUI",9
+"8",NULL,"Flask",9
+"9",NULL,"Firebase",8
+"10",NULL,"Socket.IO",8
+"11",NULL,"Docker",8
+"12",NULL,"WebSocket",8
+"13",NULL,"MySQL",8
+"14",NULL,"PHP",8
+"15",NULL,"AJAX",7
+"16",NULL,"Git",9
+"17",NULL,"Google Cloud Platform",7
+"18",NULL,"VS Code",9
+"19",NULL,"Xcode",8

@@ -6,11 +6,7 @@
     margin: 20px;
 }
 
-/* Piano Container */
-.piano-container {
-    text-align: center;
-    margin-top: 30px;
-}
+
 
 /* Piano Title */
 .piano-title {
@@ -24,51 +20,92 @@
 }
 
 /* Piano Container */
+.piano-container {
+    text-align: center;
+    margin-top: 30px;
+    background: linear-gradient(145deg, #2c2c2c, #1a1a1a);
+    padding: 40px 30px 30px 30px;
+    border-radius: 20px;
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+    display: inline-block;
+}
+
 .piano {
     display: flex;
     position: relative;
-    justify-content: center;
+    background: #333;
+    border-radius: 10px;
+    padding: 10px;
+    box-shadow: inset 0 5px 15px rgba(0, 0, 0, 0.5);
 }
 
 /* White Keys */
 .white-key {
-    width: 60px;
-    height: 180px;
-    background: white;
-    border: 2px solid black;
+    width: 50px;
+    height: 200px;
+    background: linear-gradient(to bottom, #ffffff, #f0f0f0);
+    border: 1px solid #ccc;
+    border-radius: 0 0 8px 8px;
     position: relative;
     display: flex;
     align-items: flex-end;
     justify-content: center;
-    font-size: 18px;
+    font-size: 14px;
     font-weight: bold;
     cursor: pointer;
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
+    transition: all 0.1s ease;
+}
+
+.white-key:hover {
+    background: linear-gradient(to bottom, #f8f8f8, #e8e8e8);
+    transform: translateY(1px);
+}
+
+.white-key span {
+    margin-bottom: 15px;
+    color: #666;
+    user-select: none;
 }
 
 /* Black Keys */
 .black-key {
     width: 30px;
-    height: 120px;
-    background: black;
+    height: 130px;
+    background: linear-gradient(to bottom, #2a2a2a, #000000);
+    border-radius: 0 0 5px 5px;
     position: absolute;
-    top: 0;
+    top: 10px;
     z-index: 2;
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: center;
     color: white;
-    font-size: 16px;
+    font-size: 12px;
+    font-weight: bold;
     cursor: pointer;
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.4);
+    transition: all 0.1s ease;
 }
 
-/*  Black Key Placement */
-.black-key:nth-of-type(1) { left: 45px; } 
-.black-key:nth-of-type(2) { left: 105px; } 
-.black-key:nth-of-type(3) { left: 225px; } 
-.black-key:nth-of-type(4) { left: 285px; } 
-.black-key:nth-of-type(5) { left: 345px; } 
-.black-key:nth-of-type(6) { left: 465px; } 
-.black-key:nth-of-type(7) { left: 525px; } 
+.black-key:hover {
+    background: linear-gradient(to bottom, #404040, #1a1a1a);
+    transform: translateY(1px);
+}
+
+.black-key span {
+    margin-bottom: 10px;
+    user-select: none;
+}
+
+/* Black Key Specific Positioning - Perfectly Centered Between White Keys */
+.black-key[data-key="87"] { left: 40px; }   /* W - between A and S (centered at 50px boundary) */
+.black-key[data-key="69"] { left: 90px; }   /* E - between S and D (centered at 100px boundary) */
+.black-key[data-key="84"] { left: 190px; }  /* T - between F and G (centered at 200px boundary) */
+.black-key[data-key="89"] { left: 240px; }  /* Y - between G and H (centered at 250px boundary) */
+.black-key[data-key="85"] { left: 290px; }  /* U - between H and J (centered at 300px boundary) */
+.black-key[data-key="79"] { left: 390px; }  /* O - between K and L (centered at 400px boundary) */
+.black-key[data-key="80"] { left: 440px; }  /* P - between L and ; (centered at 450px boundary) */ 
 
 /* Hide Key Letters Initially */
 .piano div span {
@@ -82,9 +119,16 @@
 }
 
 /* Pressed Key Effect */
-.white-key:active, .black-key:active {
-    transform: translateY(5px);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+.white-key:active, .white-key.pressed {
+    background: linear-gradient(to bottom, #e0e0e0, #d0d0d0);
+    transform: translateY(3px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.black-key:active, .black-key.pressed {
+    background: linear-gradient(to bottom, #404040, #1a1a1a);
+    transform: translateY(2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6);
 }
 
 
