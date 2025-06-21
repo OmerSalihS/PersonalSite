@@ -14,21 +14,25 @@ print(f"🔍 Database Environment Check:")
 print(f"   DATABASE_URL exists: {'YES' if DATABASE_URL else 'NO'}")
 print(f"   DATABASE_URL value: {DATABASE_URL[:50] + '...' if DATABASE_URL else 'None'}")
 
+# Initialize connector variables
+mysql_connector = None
+psycopg2 = None
+psycopg2_extras = None
+urlparse = None
+
 # Try to import based on environment
 try:
     if DATABASE_URL:
         # Production (Render) - use PostgreSQL
         print("   📦 Importing PostgreSQL dependencies...")
         import psycopg2
-        import psycopg2.extras
+        import psycopg2.extras as psycopg2_extras
         from urllib.parse import urlparse
-        mysql = None
         print("   ✅ PostgreSQL imports successful")
     else:
         # Development - use MySQL
         print("   📦 Importing MySQL dependencies...")
-        import mysql.connector
-        psycopg2 = None
+        import mysql.connector as mysql_connector
         print("   ✅ MySQL imports successful")
 except ImportError as e:
     print(f"   ❌ Import error: {e}")
@@ -36,14 +40,12 @@ except ImportError as e:
     try:
         print("   🔄 Trying fallback imports...")
         import psycopg2
-        import psycopg2.extras
+        import psycopg2.extras as psycopg2_extras
         from urllib.parse import urlparse
-        mysql = None
         print("   ✅ Fallback PostgreSQL imports successful")
     except ImportError:
         try:
-            import mysql.connector
-            psycopg2 = None
+            import mysql.connector as mysql_connector
             print("   ✅ Fallback MySQL imports successful")
         except ImportError as e2:
             print(f"   💥 All imports failed: {e2}")
@@ -108,7 +110,7 @@ class database:
                     database=self.database
                 )
                 
-                cur = cnx.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+                cur = cnx.cursor(cursor_factory=psycopg2_extras.RealDictCursor)
                 
                 if parameters is not None:
                     cur.execute(query, parameters)
@@ -129,7 +131,7 @@ class database:
                 cnx.close()
             else:
                 # MySQL connection
-                cnx = mysql.connector.connect(
+                cnx = mysql_connector.connect(
                     host=self.host,
                     user=self.user,
                     password=self.password,
