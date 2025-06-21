@@ -10,16 +10,41 @@ from cryptography.fernet import Fernet
 
 # Import database connectors based on environment
 DATABASE_URL = os.environ.get('DATABASE_URL')
-if DATABASE_URL:
-    # Production (Render) - use PostgreSQL
-    import psycopg2
-    import psycopg2.extras
-    from urllib.parse import urlparse
-    mysql = None
-else:
-    # Development - use MySQL
-    import mysql.connector
-    psycopg2 = None
+print(f"Environment check - DATABASE_URL: {'SET' if DATABASE_URL else 'NOT SET'}")
+print(f"Available env vars starting with 'DATA': {[k for k in os.environ.keys() if k.startswith('DATA')]}")
+print(f"Available env vars starting with 'RENDER': {[k for k in os.environ.keys() if k.startswith('RENDER')]}")
+
+# Try to import based on environment
+try:
+    if DATABASE_URL:
+        # Production (Render) - use PostgreSQL
+        import psycopg2
+        import psycopg2.extras
+        from urllib.parse import urlparse
+        mysql = None
+        print(f"Using PostgreSQL in production. DATABASE_URL detected: {DATABASE_URL[:20]}...")
+    else:
+        # Development - use MySQL
+        import mysql.connector
+        psycopg2 = None
+        print("Using MySQL in development. No DATABASE_URL detected.")
+except ImportError as e:
+    print(f"Import error: {e}")
+    # Fallback: try PostgreSQL first, then MySQL
+    try:
+        import psycopg2
+        import psycopg2.extras
+        from urllib.parse import urlparse
+        mysql = None
+        print("Fallback: Using PostgreSQL")
+    except ImportError:
+        try:
+            import mysql.connector
+            psycopg2 = None
+            print("Fallback: Using MySQL")
+        except ImportError:
+            print("ERROR: Neither psycopg2 nor mysql.connector available!")
+            raise
 
 class database:
 
