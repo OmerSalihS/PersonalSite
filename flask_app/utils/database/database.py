@@ -1,4 +1,5 @@
 import os
+import sys
 import glob
 import json
 import csv
@@ -13,6 +14,10 @@ DATABASE_URL = os.environ.get('DATABASE_URL')
 print(f"🔍 Database Environment Check:")
 print(f"   DATABASE_URL exists: {'YES' if DATABASE_URL else 'NO'}")
 print(f"   DATABASE_URL value: {DATABASE_URL[:50] + '...' if DATABASE_URL else 'None'}")
+print(f"   All environment variables containing 'DATABASE': {[k for k in os.environ.keys() if 'DATABASE' in k.upper()]}")
+print(f"   RENDER environment: {os.environ.get('RENDER', 'Not set')}")
+print(f"   Python version: {sys.version}")
+print(f"   Current working directory: {os.getcwd()}")
 
 # Initialize connector variables
 mysql_connector = None
@@ -55,6 +60,9 @@ class database:
 
     def __init__(self, purge=False):
         print("🚀 Initializing database connection...")
+        print(f"   🔍 DATABASE_URL value: {DATABASE_URL}")
+        print(f"   🔍 psycopg2 available: {psycopg2 is not None}")
+        print(f"   🔍 mysql_connector available: {mysql_connector is not None}")
         
         # Check if we're on Render (has DATABASE_URL)
         self.is_production = bool(DATABASE_URL)
@@ -62,6 +70,9 @@ class database:
         
         if self.is_production:
             print("   🐘 Setting up PostgreSQL connection...")
+            if psycopg2 is None:
+                print("   ❌ ERROR: psycopg2 is None but we're in production!")
+                raise Exception("PostgreSQL connector not available in production")
             # Parse DATABASE_URL for PostgreSQL
             url = urlparse(DATABASE_URL)
             self.database = url.path[1:]  # Remove leading slash
@@ -72,6 +83,9 @@ class database:
             print(f"   Host: {self.host}, Database: {self.database}, User: {self.user}")
         else:
             print("   🐬 Setting up MySQL connection...")
+            if mysql_connector is None:
+                print("   ❌ ERROR: mysql_connector is None but we're in development!")
+                raise Exception("MySQL connector not available in development")
             # Local MySQL settings
             self.database = 'db'
             self.host = '127.0.0.1'
