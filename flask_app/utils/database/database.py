@@ -9,24 +9,27 @@ import hashlib
 from cryptography.fernet import Fernet
 
 # Import database connectors based on environment
-if os.environ.get('DATABASE_URL'):
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if DATABASE_URL:
     # Production (Render) - use PostgreSQL
     import psycopg2
     import psycopg2.extras
     from urllib.parse import urlparse
+    mysql = None
 else:
     # Development - use MySQL
     import mysql.connector
+    psycopg2 = None
 
 class database:
 
     def __init__(self, purge=False):
         # Check if we're on Render (has DATABASE_URL)
-        self.is_production = bool(os.environ.get('DATABASE_URL'))
+        self.is_production = bool(DATABASE_URL)
         
         if self.is_production:
             # Parse DATABASE_URL for PostgreSQL
-            url = urlparse(os.environ['DATABASE_URL'])
+            url = urlparse(DATABASE_URL)
             self.database = url.path[1:]  # Remove leading slash
             self.host = url.hostname
             self.user = url.username
