@@ -60,32 +60,52 @@ class database:
 
     def __init__(self, purge=False):
         print("🚀 Initializing database connection...")
-        print(f"   🔍 DATABASE_URL value: {DATABASE_URL}")
+        
+        # Check environment variables to determine if we're in production
+        render_env = os.environ.get('RENDER')
+        flask_env = os.environ.get('FLASK_ENV')
+        port_env = os.environ.get('PORT')  # Render sets this
+        
+        print(f"   🔍 DATABASE_URL: {'SET' if DATABASE_URL else 'NOT SET'}")
+        print(f"   🔍 RENDER: {render_env}")
+        print(f"   🔍 FLASK_ENV: {flask_env}")
+        print(f"   🔍 PORT: {port_env}")
         print(f"   🔍 psycopg2 available: {psycopg2 is not None}")
         print(f"   🔍 mysql_connector available: {mysql_connector is not None}")
         
-        # Check if we're on Render (has DATABASE_URL)
-        self.is_production = bool(DATABASE_URL)
+        # Determine if we're in production (more robust detection)
+        # Or if MySQL is not available, default to PostgreSQL
+        production_indicators = [DATABASE_URL, render_env, flask_env == 'production', port_env]
+        self.is_production = any(production_indicators) or mysql_connector is None
+        
         print(f"   Production mode: {self.is_production}")
         
         if self.is_production:
             print("   🐘 Setting up PostgreSQL connection...")
             if psycopg2 is None:
-                print("   ❌ ERROR: psycopg2 is None but we're in production!")
-                raise Exception("PostgreSQL connector not available in production")
-            # Parse DATABASE_URL for PostgreSQL
-            url = urlparse(DATABASE_URL)
-            self.database = url.path[1:]  # Remove leading slash
-            self.host = url.hostname
-            self.user = url.username
-            self.port = url.port or 5432
-            self.password = url.password
-            print(f"   Host: {self.host}, Database: {self.database}, User: {self.user}")
+                print("   ❌ ERROR: psycopg2 is None but we need PostgreSQL!")
+                raise Exception("PostgreSQL connector not available")
+                
+            if DATABASE_URL:
+                # Parse DATABASE_URL for PostgreSQL
+                url = urlparse(DATABASE_URL)
+                self.database = url.path[1:]  # Remove leading slash
+                self.host = url.hostname
+                self.user = url.username
+                self.port = url.port or 5432
+                self.password = url.password
+                print(f"   Host: {self.host}, Database: {self.database}, User: {self.user}")
+            else:
+                # Fallback PostgreSQL settings
+                print("   ⚠️ No DATABASE_URL found, using fallback PostgreSQL settings")
+                self.host = os.environ.get('DB_HOST', 'localhost')
+                self.user = os.environ.get('DB_USER', 'postgres')
+                self.password = os.environ.get('DB_PASSWORD', 'password')
+                self.port = int(os.environ.get('DB_PORT', '5432'))
+                self.database = os.environ.get('DB_NAME', 'portfolio')
+                print(f"   Host: {self.host}, Database: {self.database}, User: {self.user}")
         else:
             print("   🐬 Setting up MySQL connection...")
-            if mysql_connector is None:
-                print("   ❌ ERROR: mysql_connector is None but we're in development!")
-                raise Exception("MySQL connector not available in development")
             # Local MySQL settings
             self.database = 'db'
             self.host = '127.0.0.1'
