@@ -189,15 +189,25 @@ class database:
         print('----- createTables() -----')
         if purge:
             print('Purging (dropping) existing tables...')
-            # Temporarily turn off foreign key checks so we can drop in any order
-            self.query("SET FOREIGN_KEY_CHECKS=0")
-            for table in ['skills', 'experiences', 'positions', 'institutions', 'feedback', 'users']:
-                try:
-                    self.query(f"DROP TABLE IF EXISTS {table}")
-                    print(f"Dropped table {table}")
-                except Exception as e:
-                    print(f"Error dropping {table}: {str(e)}")
-            self.query("SET FOREIGN_KEY_CHECKS=1")
+            
+            if self.is_production:
+                # PostgreSQL: Drop tables in reverse dependency order
+                for table in ['skills', 'experiences', 'positions', 'institutions', 'feedback', 'users']:
+                    try:
+                        self.query(f"DROP TABLE IF EXISTS {table} CASCADE")
+                        print(f"Dropped table {table}")
+                    except Exception as e:
+                        print(f"Error dropping {table}: {str(e)}")
+            else:
+                # MySQL: Temporarily turn off foreign key checks
+                self.query("SET FOREIGN_KEY_CHECKS=0")
+                for table in ['skills', 'experiences', 'positions', 'institutions', 'feedback', 'users']:
+                    try:
+                        self.query(f"DROP TABLE IF EXISTS {table}")
+                        print(f"Dropped table {table}")
+                    except Exception as e:
+                        print(f"Error dropping {table}: {str(e)}")
+                self.query("SET FOREIGN_KEY_CHECKS=1")
             print("Done purging!")
 
         # Create tables in the correct order
@@ -273,8 +283,15 @@ class database:
         """
         # Build the "INSERT INTO tablename (col1, col2, ...) VALUES (%s, %s, ...)"
         placeholders = ", ".join(["%s"] * len(columns))
-        col_names = ", ".join([f"`{c}`" for c in columns])
-        sql = f"INSERT INTO `{table}` ({col_names}) VALUES ({placeholders})"
+        
+        if self.is_production:
+            # PostgreSQL: Use double quotes for identifiers
+            col_names = ", ".join([f'"{c}"' for c in columns])
+            sql = f'INSERT INTO "{table}" ({col_names}) VALUES ({placeholders})'
+        else:
+            # MySQL: Use backticks for identifiers
+            col_names = ", ".join([f"`{c}`" for c in columns])
+            sql = f"INSERT INTO `{table}` ({col_names}) VALUES ({placeholders})"
 
         # Insert each row
         for row in parameters:
@@ -286,7 +303,7 @@ class database:
                     cleaned.append(val)
             try:
                 self.query(sql, cleaned)
-            except mysql.connector.Error as err:
+            except Exception as err:
                 print(f"Error inserting into {table}: {err}")
                 print(f"Problematic row: {cleaned}")
 
