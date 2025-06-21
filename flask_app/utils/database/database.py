@@ -10,49 +10,56 @@ from cryptography.fernet import Fernet
 
 # Import database connectors based on environment
 DATABASE_URL = os.environ.get('DATABASE_URL')
-print(f"Environment check - DATABASE_URL: {'SET' if DATABASE_URL else 'NOT SET'}")
-print(f"Available env vars starting with 'DATA': {[k for k in os.environ.keys() if k.startswith('DATA')]}")
-print(f"Available env vars starting with 'RENDER': {[k for k in os.environ.keys() if k.startswith('RENDER')]}")
+print(f"🔍 Database Environment Check:")
+print(f"   DATABASE_URL exists: {'YES' if DATABASE_URL else 'NO'}")
+print(f"   DATABASE_URL value: {DATABASE_URL[:50] + '...' if DATABASE_URL else 'None'}")
 
 # Try to import based on environment
 try:
     if DATABASE_URL:
         # Production (Render) - use PostgreSQL
+        print("   📦 Importing PostgreSQL dependencies...")
         import psycopg2
         import psycopg2.extras
         from urllib.parse import urlparse
         mysql = None
-        print(f"Using PostgreSQL in production. DATABASE_URL detected: {DATABASE_URL[:20]}...")
+        print("   ✅ PostgreSQL imports successful")
     else:
         # Development - use MySQL
+        print("   📦 Importing MySQL dependencies...")
         import mysql.connector
         psycopg2 = None
-        print("Using MySQL in development. No DATABASE_URL detected.")
+        print("   ✅ MySQL imports successful")
 except ImportError as e:
-    print(f"Import error: {e}")
-    # Fallback: try PostgreSQL first, then MySQL
+    print(f"   ❌ Import error: {e}")
+    # Fallback imports
     try:
+        print("   🔄 Trying fallback imports...")
         import psycopg2
         import psycopg2.extras
         from urllib.parse import urlparse
         mysql = None
-        print("Fallback: Using PostgreSQL")
+        print("   ✅ Fallback PostgreSQL imports successful")
     except ImportError:
         try:
             import mysql.connector
             psycopg2 = None
-            print("Fallback: Using MySQL")
-        except ImportError:
-            print("ERROR: Neither psycopg2 nor mysql.connector available!")
+            print("   ✅ Fallback MySQL imports successful")
+        except ImportError as e2:
+            print(f"   💥 All imports failed: {e2}")
             raise
 
 class database:
 
     def __init__(self, purge=False):
+        print("🚀 Initializing database connection...")
+        
         # Check if we're on Render (has DATABASE_URL)
         self.is_production = bool(DATABASE_URL)
+        print(f"   Production mode: {self.is_production}")
         
         if self.is_production:
+            print("   🐘 Setting up PostgreSQL connection...")
             # Parse DATABASE_URL for PostgreSQL
             url = urlparse(DATABASE_URL)
             self.database = url.path[1:]  # Remove leading slash
@@ -60,13 +67,16 @@ class database:
             self.user = url.username
             self.port = url.port or 5432
             self.password = url.password
+            print(f"   Host: {self.host}, Database: {self.database}, User: {self.user}")
         else:
+            print("   🐬 Setting up MySQL connection...")
             # Local MySQL settings
             self.database = 'db'
             self.host = '127.0.0.1'
             self.user = 'master'
             self.port = 3306
             self.password = 'master'
+            print(f"   Host: {self.host}, Database: {self.database}, User: {self.user}")
         
         # Encryption settings
         self.encryption = {
@@ -81,73 +91,80 @@ class database:
             }
         }
         
+        print("   🏗️ Creating tables...")
         self.createTables(purge=purge, data_path='flask_app/database/')
+        print("✅ Database initialization complete!")
 
     def query(self, query="SELECT CURRENT_DATE", parameters=None):
-        if self.is_production:
-            # PostgreSQL connection
-            cnx = psycopg2.connect(
-                host=self.host,
-                user=self.user,
-                password=self.password,
-                port=self.port,
-                database=self.database
-            )
-            
-            cur = cnx.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-            
-            if parameters is not None:
-                cur.execute(query, parameters)
-            else:
-                cur.execute(query)
-            
-            # Fetch results
-            try:
-                row = cur.fetchall()
-                # Convert RealDictRow to regular dict
-                row = [dict(r) for r in row]
-            except:
-                row = []
-            
-            cnx.commit()
-            
-            if "INSERT" in query.upper() and "RETURNING" not in query.upper():
-                # For PostgreSQL, we need to modify INSERT queries to return the ID
-                if "INSERT INTO" in query.upper():
-                    # This is a bit hacky, but for compatibility
-                    pass
-            
-            cur.close()
-            cnx.close()
-            return row
-        else:
-            # MySQL connection (original code)
-            cnx = mysql.connector.connect(host=self.host,
-                                          user=self.user,
-                                          password=self.password,
-                                          port=self.port,
-                                          database=self.database,
-                                          charset='latin1'
-                                         )
-
-            if parameters is not None:
-                cur = cnx.cursor(dictionary=True)
-                cur.execute(query, parameters)
-            else:
-                cur = cnx.cursor(dictionary=True)
-                cur.execute(query)
-
-            # Fetch one result
-            row = cur.fetchall()
-            cnx.commit()
-
-            if "INSERT" in query:
-                cur.execute("SELECT LAST_INSERT_ID()")
-                row = cur.fetchall()
+        results = []
+        try:
+            if self.is_production:
+                # PostgreSQL connection
+                cnx = psycopg2.connect(
+                    host=self.host,
+                    user=self.user,
+                    password=self.password,
+                    port=self.port,
+                    database=self.database
+                )
+                
+                cur = cnx.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+                
+                if parameters is not None:
+                    cur.execute(query, parameters)
+                else:
+                    cur.execute(query)
+                
+                # Fetch results
+                try:
+                    results = cur.fetchall()
+                    # Convert RealDictRow to regular dict
+                    results = [dict(r) for r in results]
+                except psycopg2.ProgrammingError:
+                    # No results to fetch (INSERT, UPDATE, DELETE, etc.)
+                    results = []
+                
                 cnx.commit()
-            cur.close()
-            cnx.close()
-            return row
+                cur.close()
+                cnx.close()
+            else:
+                # MySQL connection
+                cnx = mysql.connector.connect(
+                    host=self.host,
+                    user=self.user,
+                    password=self.password,
+                    port=self.port,
+                    database=self.database,
+                    charset='latin1'
+                )
+
+                if parameters is not None:
+                    cur = cnx.cursor(dictionary=True)
+                    cur.execute(query, parameters)
+                else:
+                    cur = cnx.cursor(dictionary=True)
+                    cur.execute(query)
+
+                # Fetch all results
+                results = cur.fetchall()
+                cnx.commit()
+
+                if "INSERT" in query.upper():
+                    cur.execute("SELECT LAST_INSERT_ID()")
+                    insert_result = cur.fetchall()
+                    cnx.commit()
+                    if insert_result:
+                        results = insert_result
+                        
+                cur.close()
+                cnx.close()
+            
+        except Exception as e:
+            print(f"💥 Database query error: {e}")
+            print(f"   Query: {query}")
+            print(f"   Parameters: {parameters}")
+            
+        return results
 
     def about(self, nested=False):    
         query = """select concat(col.table_schema, '.', col.table_name) as 'table',
@@ -186,46 +203,54 @@ class database:
         (2) Creates tables by running all .sql files in data_path/create_tables.
         (3) Inserts initial data from all .csv files in data_path/initial_data.
         """
-        print('----- createTables() -----')
+        print('🏗️ ----- createTables() -----')
+        
         if purge:
-            print('Purging (dropping) existing tables...')
+            print('🧹 Purging (dropping) existing tables...')
             
             if self.is_production:
+                print('   🐘 Using PostgreSQL CASCADE drops...')
                 # PostgreSQL: Drop tables in reverse dependency order
                 for table in ['skills', 'experiences', 'positions', 'institutions', 'feedback', 'users']:
                     try:
                         self.query(f"DROP TABLE IF EXISTS {table} CASCADE")
-                        print(f"Dropped table {table}")
+                        print(f"   ✅ Dropped table {table}")
                     except Exception as e:
-                        print(f"Error dropping {table}: {str(e)}")
+                        print(f"   ❌ Error dropping {table}: {str(e)}")
             else:
+                print('   🐬 Using MySQL foreign key checks...')
                 # MySQL: Temporarily turn off foreign key checks
-                self.query("SET FOREIGN_KEY_CHECKS=0")
-                for table in ['skills', 'experiences', 'positions', 'institutions', 'feedback', 'users']:
-                    try:
-                        self.query(f"DROP TABLE IF EXISTS {table}")
-                        print(f"Dropped table {table}")
-                    except Exception as e:
-                        print(f"Error dropping {table}: {str(e)}")
-                self.query("SET FOREIGN_KEY_CHECKS=1")
-            print("Done purging!")
+                try:
+                    self.query("SET FOREIGN_KEY_CHECKS=0")
+                    for table in ['skills', 'experiences', 'positions', 'institutions', 'feedback', 'users']:
+                        try:
+                            self.query(f"DROP TABLE IF EXISTS {table}")
+                            print(f"   ✅ Dropped table {table}")
+                        except Exception as e:
+                            print(f"   ❌ Error dropping {table}: {str(e)}")
+                    self.query("SET FOREIGN_KEY_CHECKS=1")
+                except Exception as e:
+                    print(f"   ❌ Error with foreign key checks: {str(e)}")
+            print('✅ Done purging!')
 
         # Create tables in the correct order
         table_order = ['users', 'institutions', 'positions', 'experiences', 'skills', 'feedback']
+        print('📋 Creating tables...')
         for table in table_order:
             try:
-                print(f"Running {data_path}create_tables/{table}.sql")
+                print(f"   📄 Running {data_path}create_tables/{table}.sql")
                 with open(data_path + f"create_tables/{table}.sql") as read_file:
                     create_statement = read_file.read()
                 self.query(create_statement)
+                print(f"   ✅ Created table {table}")
             except Exception as e:
-                print(f"Error executing SQL: {str(e)}")
-                print(f"Problematic statement: {create_statement}")
+                print(f"   ❌ Error executing SQL for {table}: {str(e)}")
 
         # Insert initial data
+        print('📊 Inserting initial data...')
         for table in table_order:
             try:
-                print(f"Inserting data into '{table}' from '{data_path}initial_data/{table}.csv'")
+                print(f"   📥 Inserting data into '{table}' from '{data_path}initial_data/{table}.csv'")
                 params = []
                 with open(data_path + f"initial_data/{table}.csv") as read_file:
                     scsv = read_file.read()            
@@ -235,14 +260,15 @@ class database:
                 # Insert the data
                 cols = params[0]; params = params[1:] 
                 self.insertRows(table=table, columns=cols, parameters=params)
+                print(f"   ✅ Inserted {len(params)} rows into {table}")
             except Exception as e:
-                print(f"Error inserting into {table}: {str(e)}")
+                print(f"   ⚠️ Error inserting into {table}: {str(e)}")
                 if 'params' in locals() and len(params) > 0:
-                    print(f"Problematic row: {params[0]}")
+                    print(f"      Problematic row: {params[0]}")
                 else:
-                    print('no initial data')
+                    print('      No initial data file found')
 
-        print("----- Done creating and populating tables -----")
+        print("✅ ----- Done creating and populating tables -----")
 
     def get_drop_order(self, dependencies):
         """
@@ -304,8 +330,8 @@ class database:
             try:
                 self.query(sql, cleaned)
             except Exception as err:
-                print(f"Error inserting into {table}: {err}")
-                print(f"Problematic row: {cleaned}")
+                print(f"❌ Error inserting into {table}: {err}")
+                print(f"   Problematic row: {cleaned}")
 
     def getResumeData(self):
         """
