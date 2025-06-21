@@ -3,7 +3,7 @@ services:
     name: portfolio-web
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn --bind :$PORT --workers 1 --worker-class eventlet --threads 8 --timeout 0 app:app
+    startCommand: gunicorn -c gunicorn_config.py app:app
     envVars:
       - key: FLASK_ENV
         value: production

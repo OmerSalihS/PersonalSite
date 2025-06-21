@@ -127,8 +127,13 @@ class database:
             }
         }
         
+        # Determine the absolute path to the data files
+        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+        data_path = os.path.join(base_dir, 'database/')
+
+        print(f"   📂 Using data path: {data_path}")
         print("   🏗️ Creating tables...")
-        self.createTables(purge=purge, data_path='flask_app/database/')
+        self.createTables(purge=purge, data_path=data_path)
         print("✅ Database initialization complete!")
 
     def query(self, query="SELECT CURRENT_DATE", parameters=None):
