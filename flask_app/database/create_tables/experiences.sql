@@ -1,5 +1,5 @@
-CREATE TABLE experiences (
-    experience_id INT AUTO_INCREMENT PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS experiences (
+    experience_id SERIAL PRIMARY KEY,
     position_id INT NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
