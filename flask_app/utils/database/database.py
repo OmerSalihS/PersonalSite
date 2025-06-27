@@ -73,10 +73,8 @@ class database:
         print(f"   🔍 psycopg2 available: {psycopg2 is not None}")
         print(f"   🔍 mysql_connector available: {mysql_connector is not None}")
         
-        # Determine if we're in production (more robust detection)
-        # Or if MySQL is not available, default to PostgreSQL
-        production_indicators = [DATABASE_URL, render_env, flask_env == 'production', port_env]
-        self.is_production = any(production_indicators) or mysql_connector is None
+        # ALWAYS use PostgreSQL when on Render (DATABASE_URL is set)
+        self.is_production = DATABASE_URL is not None
         
         print(f"   Production mode: {self.is_production}")
         
@@ -96,14 +94,9 @@ class database:
                 self.password = url.password
                 print(f"   Host: {self.host}, Database: {self.database}, User: {self.user}")
             else:
-                # Fallback PostgreSQL settings
-                print("   ⚠️ No DATABASE_URL found, using fallback PostgreSQL settings")
-                self.host = os.environ.get('DB_HOST', 'localhost')
-                self.user = os.environ.get('DB_USER', 'postgres')
-                self.password = os.environ.get('DB_PASSWORD', 'password')
-                self.port = int(os.environ.get('DB_PORT', '5432'))
-                self.database = os.environ.get('DB_NAME', 'portfolio')
-                print(f"   Host: {self.host}, Database: {self.database}, User: {self.user}")
+                # This should never happen since we check DATABASE_URL above
+                print("   ⚠️ No DATABASE_URL found, but is_production=True. This is an error.")
+                raise Exception("DATABASE_URL is required in production mode")
         else:
             print("   🐬 Setting up MySQL connection...")
             # Local MySQL settings
@@ -141,13 +134,27 @@ class database:
         try:
             if self.is_production:
                 # PostgreSQL connection
-                cnx = psycopg2.connect(
-                    host=self.host,
-                    user=self.user,
-                    password=self.password,
-                    port=self.port,
-                    database=self.database
-                )
+                try:
+                    # For Render deployment, use sslmode=require
+                    cnx = psycopg2.connect(
+                        host=self.host,
+                        user=self.user,
+                        password=self.password,
+                        port=self.port,
+                        database=self.database,
+                        sslmode='require'
+                    )
+                except psycopg2.OperationalError as e:
+                    print(f"   ⚠️ PostgreSQL connection failed with sslmode=require: {e}")
+                    print("   🔄 Trying again without SSL...")
+                    # Try again without SSL
+                    cnx = psycopg2.connect(
+                        host=self.host,
+                        user=self.user,
+                        password=self.password,
+                        port=self.port,
+                        database=self.database
+                    )
                 
                 cur = cnx.cursor(cursor_factory=psycopg2_extras.RealDictCursor)
                 
@@ -282,6 +289,7 @@ class database:
                 print(f"   📄 Running {data_path}create_tables/{table}.sql")
                 with open(data_path + f"create_tables/{table}.sql") as read_file:
                     create_statement = read_file.read()
+                
                 self.query(create_statement)
                 print(f"   ✅ Created table {table}")
             except Exception as e:

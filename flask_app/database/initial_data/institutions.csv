@@ -1,2 +1,3 @@
 "inst_id","type","name","department","address","city","state","zip"
 "1","Academia","Michigan State University","Bachelor in Computer Science, Minor in Cognitive Science",NULL,"East Lansing","MI",NULL
+"4","Organization","Student Organization","Technology Education",NULL,"East Lansing","MI",NULL
