@@ -31,6 +31,7 @@
         <h2>EXPERIENCE</h2>
         {% for inst_id, inst in resume_data.items() %}
             {% for pos_id, pos in inst.get('positions', {}).items() %}
+                {% if pos.title != 'B.S. Student' %}  <!-- Skip B.S. Student position to avoid duplication -->
                 <div class="entry">
                     <div class="entry-header">
                         <span class="title">{{ pos.title }}</span>
@@ -50,6 +51,7 @@
                         {% endfor %}
                     </ul>
                 </div>
+                {% endif %}
             {% endfor %}
         {% endfor %}
     </div>
@@ -57,32 +59,64 @@
     <!-- Projects Section -->
     <div class="resume-section">
         <h2>PROJECTS</h2>
-        <div class="entry">
-            <div class="entry-header">
-                <span class="title">
-                    <a href="/">Personal Portfolio Page with Interactive Chat</a>
-                </span>
-                <span class="date">March 2024</span>
-            </div>
-            <p>Developed a full-stack web application using Flask and MySQL, implementing secure user authentication with password encryption using Scrypt.<br>Engineered real-time bidirectional communication using WebSocket technology (Socket.IO) for instant message delivery.<br>Utilized Docker containerization for consistent deployment across environments.<br>Integrated MySQL database with proper security measures for user data storage.<br>Implemented AJAX for asynchronous form submissions and dynamic content updates.</p>
-        </div>
-        
-        <div class="entry">
-            <div class="entry-header">
-                <span class="title">RecipeIO | Swift, SwiftUI, Firebase, OpenAI API</span>
-                <span class="date">May 2025</span>
-            </div>
-            <p>Designing and developing a native iOS app to help home cooks organize, store, and enhance personal recipes with AI-generated suggestions.<br>Building using SwiftUI for a modern, responsive user interface and Firebase for authentication (email/Apple ID), cloud-based recipe storage (Firestore), and media storage (Firebase Storage).<br>Integrating OpenAI API to generate personalized cooking tips, ingredient substitutions, and improvement suggestions based on recipe content.<br>Implementing structured data models for recipes with fields for title, ingredients, instructions, tags, categories, and user-uploaded images.</p>
-        </div>
+        {% for inst_id, inst in resume_data.items() %}
+            {% for pos_id, pos in inst.get('positions', {}).items() %}
+                {% if pos.title in ['Personal Project Developer', 'iOS App Developer'] %}
+                    {% for exp_id, exp in pos.get('experiences', {}).items() %}
+                        <div class="entry">
+                            <div class="entry-header">
+                                <span class="title">
+                                    {% if exp.hyperlink %}
+                                        <a href="{{ exp.hyperlink }}">{{ exp.name }}</a>
+                                    {% else %}
+                                        {{ exp.name }}
+                                    {% endif %}
+                                </span>
+                                <span class="date">
+                                    {{ exp.start_date.strftime('%b %Y') if exp.start_date else "" }}
+                                </span>
+                            </div>
+                            <p>{{ exp.description|replace('\n', '<br>')|safe }}</p>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endfor %}
+        {% endfor %}
     </div>
 
     <!-- Technical Skills Section -->
     <div class="resume-section">
         <h2>TECHNICAL SKILLS</h2>
         <div class="skills-list">
-            <p><strong>Languages:</strong> Swift, Python, Javascript, SQL (Postgres), HTML/CSS, C++, PHP</p>
-            <p><strong>Frameworks:</strong> SwiftUI, Flask, Firebase, Socket.IO, Docker, WebSocket, MySQL, AJAX</p>
-            <p><strong>Developer Tools:</strong> Git, Google Cloud Platform, VS Code, Xcode</p>
+            {% set languages = [] %}
+            {% set frameworks = [] %}
+            {% set tools = [] %}
+            
+            {% for inst_id, inst in resume_data.items() %}
+                {% for pos_id, pos in inst.get('positions', {}).items() %}
+                    {% for exp_id, exp in pos.get('experiences', {}).items() %}
+                        {% for skill_id, skill in exp.get('skills', {}).items() %}
+                            {% if skill.name in ['Swift', 'Python', 'Javascript', 'SQL (Postgres)', 'HTML/CSS', 'C++', 'PHP'] %}
+                                {% if skill.name not in languages %}
+                                    {{ languages.append(skill.name) or "" }}
+                                {% endif %}
+                            {% elif skill.name in ['SwiftUI', 'Flask', 'Firebase', 'Socket.IO', 'Docker', 'WebSocket', 'MySQL', 'AJAX'] %}
+                                {% if skill.name not in frameworks %}
+                                    {{ frameworks.append(skill.name) or "" }}
+                                {% endif %}
+                            {% elif skill.name in ['Git', 'Google Cloud Platform', 'VS Code', 'Xcode'] %}
+                                {% if skill.name not in tools %}
+                                    {{ tools.append(skill.name) or "" }}
+                                {% endif %}
+                            {% endif %}
+                        {% endfor %}
+                    {% endfor %}
+                {% endfor %}
+            {% endfor %}
+            
+            <p><strong>Languages:</strong> {{ languages|join(', ') }}</p>
+            <p><strong>Frameworks:</strong> {{ frameworks|join(', ') }}</p>
+            <p><strong>Developer Tools:</strong> {{ tools|join(', ') }}</p>
         </div>
     </div>
 </div>
